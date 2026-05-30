@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CosmosAI - Cinematic Universe Engine</title>
+    <style>
+        :root {
+            --glow-color: #00f3ff;
+            --bg-glass: rgba(10, 10, 18, 0.6);
+            --border-glass: rgba(255, 255, 255, 0.1);
+            --font-cyber: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #020208;
+            font-family: var(--font-cyber);
+            color: #ffffff;
+        }
+
+        #webgl-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* Cinematic HUD Interface */
+        #hud-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: grid;
+            grid-template-columns: 320px 1fr 360px;
+            grid-template-rows: 90px 1fr 140px;
+            padding: 25px;
+            gap: 20px;
+        }
+
+        .interactive-el {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px) saturate(120%);
+            -webkit-backdrop-filter: blur(16px) saturate(120%);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 243, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 243, 255, 0.1);
+        }
+
+        /* Top Header Panel */
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .brand-logo {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--glow-color);
+            border-radius: 50%;
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+
+        .brand-logo::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 12px;
+            height: 12px;
+            background: #ff007b;
+            border-radius: 50%;
+        }
+
+        .brand-title h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(45deg, #fff, #8a99ad);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-title p {
+            font-size: 0.75rem;
+            color: var(--glow-color);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        /* System Telemetry (Left) */
+        .left-sidebar {
+            grid-column: 1;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .telemetry-item {
+            margin-bottom: 12px;
+        }
+
+        .telemetry-label {
+            font-size: 0.7rem;
+            color: #8a99ad;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+
+        .telemetry-value {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #ffffff;
+            font-family: monospace;
+        }
+
+        .telemetry-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+
+        .telemetry-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--glow-color);
+            transition: width 0.3s ease;
+        }
+
+        /* Vision Feed Panel (Right) */
+        .right-sidebar {
+            grid-column: 3;
+            grid-row: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: #000;
+        }
+
+        #webcam-video {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            opacity: 0.4;
+        }
+
+        #tracking-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            transform: scaleX(-1);
+        }
+
+        /* Interactive Narration Center (Bottom) */
+        footer {
+            grid-column: 1 / -1;
+            grid-row: 3;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .narration-panel {
+            width: 100%;
+            max-width: 900px;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            border: 1px solid rgba(0, 243, 255, 0.2);
+        }
+
+        .story-text {
+            font-size: 1.25rem;
+            font-weight: 300;
+            line-height: 1.6;
+            color: #e2e8f0;
+            max-width: 750px;
+            transition: opacity 0.5s ease;
+        }
+
+        .story-hint {
+            font-size: 0.75rem;
+            color: var(--glow-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 10px;
+            opacity: 0.7;
+        }
+
+        /* Cinematic Setup Screen Overlay */
+        #init-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, #0a0a16 0%, #020205 100%);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 1s ease;
+        }
+
+        .init-box {
+            text-align: center;
+            max-width: 500px;
+            padding: 40px;
+        }
+
+        .init-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            background: linear-gradient(45deg, #00f3ff, #ff007b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .init-desc {
+            font-size: 0.95rem;
+            color: #8a99ad;
+            line-height: 1.6;
+            margin-bottom: 35px;
+        }
+
+        .init-btn {
+            background: transparent;
+            border: 1px solid var(--glow-color);
+            color: #ffffff;
+            padding: 14px 35px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .init-btn:hover {
+            background: var(--glow-color);
+            color: #000000;
+            box-shadow: 0 0 30px var(--glow-color);
+            font-weight: bold;
+        }
+
+        #loading-status {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #ff007b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: monospace;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.4); }
+            70% { box-shadow: 0 0 0 12px rgba(0, 243, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+
+        /* Screen Shake effect from system states */
+        .shake-active {
+            animation: screenShake 0.15s infinite;
+        }
+
+        @keyframes screenShake {
+            0% { transform: translate(2px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(0px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(2px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(2px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+<body>
+
+    <canvas id="webgl-canvas"></canvas>
+
+    <div id="init-overlay">
+        <div class="init-box">
+            <div class="init-title">Cosmos Engine</div>
+            <div class="init-desc">Experience an interactive AAA procedural runtime controlled directly via your spatial movements, hand gestures, and emotive states.</div>
+            <button class="init-btn" id="start-btn">Initialize Simulation</button>
+            <div id="loading-status">Awaiting trigger authorization...</div>
+        </div>
+    </div>
+
+    <div id="hud-container">
+        <header class="glass-panel interactive-el">
+            <div class="brand">
+                <div class="brand-logo"></div>
+                <div class="brand-title">
+                    <h1>Cosmos Runtime</h1>
+                    <p id="system-status-text">System Normal // Vector Engine Active</p>
+                </div>
+            </div>
+        </header>
+
+        <div class="left-sidebar">
+            <div class="glass-panel interactive-el">
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Gesture State</div>
+                    <div class="telemetry-value" id="telemetry-gesture">Searching...</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Expression Vector</div>
+                    <div class="telemetry-value" id="telemetry-emotion">Neutral</div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Spell Matrix Trace</div>
+                    <div class="telemetry-value" id="telemetry-spell">Inactive</div>
+                </div>
+            </div>
+
+            <div class="glass-panel interactive-el">
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Galaxy Core Pressure</div>
+                    <div class="telemetry-value" id="val-pressure">1.00x</div>
+                    <div class="telemetry-bar"><div class="telemetry-fill" id="bar-pressure" style="width: 30%"></div></div>
+                </div>
+                <div class="telemetry-item">
+                    <div class="telemetry-label">Quantum Entity Bonding</div>
+                    <div class="telemetry-value" id="val-bonding">0.0%</div>
+                    <div class="telemetry-bar"><div class="telemetry-fill" id="bar-bonding" style="width: 0%"></div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-sidebar">
+            <div class="glass-panel interactive-el">
+                <div class="telemetry-label" style="margin-bottom: 8px;">Spatial Computer Vision</div>
+                <div class="video-container">
+                    <video id="webcam-video" autoplay playsinline muted></video>
+                    <canvas id="tracking-overlay"></canvas>
+                </div>
+            </div>
+            
+            <div class="glass-panel interactive-el" style="flex: 1;">
+                <div class="telemetry-label">Active Reality Frame</div>
+                <div class="telemetry-value" id="telemetry-portal">Prime Universe</div>
+                <div style="font-size: 0.75rem; color: #8a99ad; margin-top: 10px; line-height: 1.4;" id="portal-desc">
+                    Portal structural geometry closed. Generate two-hand vector mapping to puncture spatial dimensional membranes.
+                </div>
+            </div>
+        </div>
+
+        <footer class="interactive-el">
+            <div class="glass-panel narration-panel">
+                <div class="story-text" id="story-display">Welcome, Star Voyager. Raise your right or left hand to interface with the core consciousness architecture of this micro-universe.</div>
+                <div class="story-hint" id="story-sub">Advance the story by changing your spatial orientation or depth profile.</div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        /**
+         * Global System Parameters and Central State Model
+         */
+        const Config = {
+            galaxyParticleCount: 16000,
+            rainParticleCount: 2000,
+            baseGalaxyRadius: 35,
+            smoothLerpFactor: 0.08,
+            gestureThresholds: {
+                fistMaxDistance: 0.07,
+                openPalmMinDistance: 0.12
+            }
+        };
+
+        const EngineState = {
+            gesture: "None",
+            emotion: "Neutral",
+            spell: "None",
+            portalOpen: false,
+            portalProgress: 0.0,
+            storyNode: 0,
+            bondingLevel: 22.5,
+            galaxyScale: 1.0,
+            galaxySpeed: 1.0,
+            galaxyTargetScale: 1.0,
+            galaxyTargetSpeed: 1.0,
+            explosionFactor: 0.0,
+            collapseFactor: 0.0,
+            cameraTargetPos: new THREE.Vector3(0, 20, 60),
+            cameraTargetLookAt: new THREE.Vector3(0, 0, 0),
+            activeCreature: "None", // None, Tree, Dragon, Phoenix
+            creaturePulse: 0.0,
+            environmentMode: "Calm", // Calm, Rain, Fire
+            lightningIntensity: 0.0,
+            shieldIntensity: 0.0,
+            screenShake: false
+        };
+
+        /**
+         * Native High Fidelity Synthesizer (Web Audio API Architecture)
+         */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.ambientOsc = null;
+                this.filterNode = null;
+            }
+
+            init() {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+
+                    this.setupAmbientDrone();
+                } catch(e) {
+                    console.error("Web Audio initialization failure:", e);
+                }
+            }
+
+            setupAmbientDrone() {
+                this.filterNode = this.ctx.createBiquadFilter();
+                this.filterNode.type = 'lowpass';
+                this.filterNode.frequency.setValueAtTime(450, this.ctx.currentTime);
+                this.filterNode.Q.setValueAtTime(1.0, this.ctx.currentTime);
+                this.filterNode.connect(this.masterGain);
+
+                this.ambientOsc = this.ctx.createOscillator();
+                this.ambientOsc.type = 'sawtooth';
+                this.ambientOsc.frequency.setValueAtTime(55, this.ctx.currentTime); // Low G Sub-bass drone
+
+                const subOsc = this.ctx.createOscillator();
+                subOsc.type = 'triangle';
+                subOsc.frequency.setValueAtTime(110, this.ctx.currentTime);
+
+                const droneGain = this.ctx.createGain();
+                droneGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+
+                this.ambientOsc.connect(droneGain);
+                subOsc.connect(droneGain);
+                droneGain.connect(this.filterNode);
+
+                this.ambientOsc.start();
+                subOsc.start();
+            }
+
+            updateAudioParameters(speed, pressure) {
+                if(!this.ctx) return;
+                // Dynamically transform continuous audio spectrum parameters based on visual engine properties
+                const targetFreq = 250 + (speed * 300) + (pressure * 200);
+                this.filterNode.frequency.setTargetAtTime(Math.min(2400, Math.max(100, targetFreq)), this.ctx.currentTime, 0.1);
+            }
+
+            triggerExplosionFX() {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 1.2);
+                
+                gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1.2);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 1.3);
+            }
+
+            triggerImpactFX() {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.4);
+                
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+
+            triggerSpellFX() {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(880, this.ctx.currentTime + 0.3);
+                
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+        }
+
+        const SoundSystem = new AudioEngine();
+
+        /**
+         * Spatial Hardware Camera Capture Interface
+         */
+        class CameraSystem {
+            constructor(videoElementId) {
+                this.videoElement = document.getElementById(videoElementId);
+            }
+
+            async initialize() {
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error("Webcam access protocols missing from native browser context.");
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: false,
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: "user"
+                    }
+                });
+                this.videoElement.srcObject = stream;
+                return new Promise((resolve) => {
+                    this.videoElement.onloadedmetadata = () => {
+                        this.videoElement.play();
+                        resolve(this.videoElement);
+                    };
+                });
+            }
+        }
+
+        /**
+         * Computer Vision Tracking Engine (MediaPipe Core Wrapper Matrix)
+         */
+        class TrackingEngine {
+            constructor(videoEl, overlayCanvasId) {
+                this.videoElement = videoEl;
+                this.canvasElement = document.getElementById(overlayCanvasId);
+                this.ctx = this.canvasElement.getContext('2d');
+                this.hands = null;
+                this.faceMesh = null;
+                this.spellTracePoints = [];
+            }
+
+            init() {
+                this.canvasElement.width = this.videoElement.videoWidth;
+                this.canvasElement.height = this.videoElement.videoHeight;
+
+                // Hands Pipeline Context Setup
+                this.hands = new Hands({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+                });
+                this.hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
+                this.hands.onResults((res) => this.onHandResults(res));
+
+                // Face Mesh Context Architecture
+                this.faceMesh = new FaceMesh({
+                    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+                });
+                this.faceMesh.setOptions({
+                    maxNumFaces: 1,
+                    refineLandmarks: true,
+                    minDetectionConfidence: 0.6,
+                    minTrackingConfidence: 0.6
+                });
+                this.faceMesh.onResults((res) => this.onFaceResults(res));
+
+                // Stream processing binding
+                const camera = new Camera(this.videoElement, {
+                    onFrame: async () => {
+                        await this.hands.send({ image: this.videoElement });
+                        await this.faceMesh.send({ image: this.videoElement });
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start();
+            }
+
+            onHandResults(results) {
+                this.ctx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+                
+                if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+                    if(EngineState.gesture !== "None") {
+                        EngineState.gesture = "None";
+                        document.getElementById("telemetry-gesture").innerText = "Searching...";
+                    }
+                    return;
+                }
+
+                // Render dynamic telemetry pipeline tracing inside mini hud overlay
+                for (const landmarks of results.multiHandLandmarks) {
+                    for(let i=0; i<landmarks.length; i++) {
+                        const pt = landmarks[i];
+                        this.ctx.fillStyle = i === 8 ? "#ff007b" : "#00f3ff";
+                        this.ctx.fillRect(pt.x * this.canvasElement.width, pt.y * this.canvasElement.height, 4, 4);
+                    }
+                }
+
+                const primaryHand = results.multiHandLandmarks[0];
+                this.analyzeHandGestures(results.multiHandLandmarks);
+                this.trackMagicSpells(primaryHand);
+            }
+
+            analyzeHandGestures(allHands) {
+                const hand = allHands[0];
+                
+                // Euclidean distance metrics definitions for functional skeletal profiling
+                const getDist = (p1, p2) => Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+                
+                const wrist = hand[0];
+                const indexTip = hand[8];
+                const middleTip = hand[12];
+                const ringTip = hand[16];
+                const pinkyTip = hand[20];
+                const thumbTip = hand[4];
+
+                const indexKnuckle = hand[5];
+                const middleKnuckle = hand[9];
+                const ringKnuckle = hand[13];
+                const pinkyKnuckle = hand[17];
+
+                // Calculate extensions relative to base coordinate thresholds
+                const isIndexExtended = indexTip.y < indexKnuckle.y;
+                const isMiddleExtended = middleTip.y < middleKnuckle.y;
+                const isRingExtended = ringTip.y < ringKnuckle.y;
+                const isPinkyExtended = pinkyTip.y < pinkyKnuckle.y;
+
+                let currentGesture = "Tracking";
+
+                // Gesture Analysis State Logic Matrix
+                if (!isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
+                    currentGesture = "Fist";
+                } else if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
+                    currentGesture = "Open Palm";
+                } else if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
+                    currentGesture = "One Finger";
+                } else if (isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended) {
+                    currentGesture = "Two Fingers";
+                } else if (isIndexExtended && !isMiddleExtended && !isRingExtended && isPinkyExtended) {
+                    currentGesture = "Cosmic Rocker"; // Custom Gesture Mode Matrix mapping
+                }
+
+                if (allHands.length === 2) {
+                    EngineState.portalOpen = true;
+                    EngineState.portalProgress = Math.min(1.0, EngineState.portalProgress + 0.02);
+                    document.getElementById("telemetry-portal").innerText = "Wormhole Collapsing Membrane";
+                    document.getElementById("telemetry-portal").style.color = "#ff007b";
+                    document.getElementById("portal-desc").innerText = "Dual-handed interaction detected. High magnitude spatial distortion triggered inside the volumetric view volume.";
+                } else {
+                    EngineState.portalProgress = Math.max(0.0, EngineState.portalProgress - 0.01);
+                    if(EngineState.portalProgress === 0.0) {
+                        EngineState.portalOpen = false;
+                        document.getElementById("telemetry-portal").innerText = "Prime Universe";
+                        document.getElementById("telemetry-portal").style.color = "#ffffff";
+                        document.getElementById("portal-desc").innerText = "Portal structural geometry closed. Generate two-hand vector mapping to puncture spatial dimensional membranes.";
+                    }
+                }
+
+                // Apply interactive transforms via spatial engine global pipelines
+                if (currentGesture !== EngineState.gesture) {
+                    EngineState.gesture = currentGesture;
+                    document.getElementById("telemetry-gesture").innerText = currentGesture;
+                    this.onGestureTrigger(currentGesture);
+                }
+
+                // Continuous physical transform properties update
+                if (currentGesture === "Open Palm") {
+                    EngineState.galaxyTargetScale = 2.2;
+                    EngineState.galaxyTargetSpeed = 2.5;
+                } else if (currentGesture === "Fist") {
+                    EngineState.galaxyTargetScale = 0.3;
+                    EngineState.galaxyTargetSpeed = 0.2;
+                } else if (currentGesture === "One Finger") {
+                    // Control view volume transform distance calculation based on index vertical axis position
+                    EngineState.cameraTargetPos.z = 30 + (indexTip.y * 70);
+                } else {
+                    EngineState.galaxyTargetScale = 1.0;
+                    EngineState.galaxyTargetSpeed = 1.0;
+                }
+
+                // Determine cosmic lifecycle allocation mapping parameters
+                if (allHands.length === 1) {
+                    if (currentGesture === "Open Palm") EngineState.activeCreature = "Tree";
+                    else if (currentGesture === "One Finger" || currentGesture === "Two Fingers") EngineState.activeCreature = "Phoenix";
+                    else EngineState.activeCreature = "Pet";
+                } else if (allHands.length === 2) {
+                    EngineState.activeCreature = "Dragon";
+                }
+            }
+
+            onGestureTrigger(gesture) {
+                if (gesture === "Open Palm") {
+                    EngineState.explosionFactor = 1.0;
+                    SoundSystem.triggerExplosionFX();
+                } else if (gesture === "Fist") {
+                    EngineState.collapseFactor = 1.0;
+                    SoundSystem.triggerImpactFX();
+                } else if (gesture === "Two Fingers") {
+                    // Trigger progressive cinematic narration module update
+                    EngineState.storyNode = (EngineState.storyNode + 1) % StoryScript.length;
+                    updateStoryUI();
+                    SoundSystem.triggerSpellFX();
+                }
+            }
+
+            trackMagicSpells(handLandmarks) {
+                const indexTip = handLandmarks[8];
+                const pt = { x: indexTip.x * this.canvasElement.width, y: indexTip.y * this.canvasElement.height, time: Date.now() };
+                
+                this.spellTracePoints.push(pt);
+                // Clear obsolete buffer elements outside strict time horizon window
+                this.spellTracePoints = this.spellTracePoints.filter(p => Date.now() - p.time < 1200);
+
+                if (this.spellTracePoints.length < 15) return;
+
+                // Evaluate gesture path spatial derivatives mapping
+                let minX = 999, maxX = -999, minY = 999, maxY = -999;
+                this.spellTracePoints.forEach(p => {
+                    if(p.x < minX) minX = p.x; if(p.x > maxX) maxX = p.x;
+                    if(p.y < minY) minY = p.y; if(p.y > maxY) maxY = p.y;
+                });
+
+                const dx = maxX - minX;
+                const dy = maxY - minY;
+
+                // Simple execution engine checking bounding path dimensions aspects
+                if (dx > 120 && dy > 120) {
+                    if (EngineState.spell !== "Shield Dome") {
+                        EngineState.spell = "Shield Dome";
+                        EngineState.shieldIntensity = 1.0;
+                        document.getElementById("telemetry-spell").innerText = "Shield Dome [Active]";
+                        SoundSystem.triggerSpellFX();
+                    }
+                } else if (dx > 150 && dy < 50) {
+                    if (EngineState.spell !== "Lightning Strike") {
+                        EngineState.spell = "Lightning Strike";
+                        EngineState.lightningIntensity = 1.0;
+                        EngineState.screenShake = true;
+                        document.getElementById("telemetry-spell").innerText = "Lightning Strike [Cast]";
+                        SoundSystem.triggerExplosionFX();
+                        setTimeout(() => { EngineState.screenShake = false; }, 400);
+                    }
+                } else {
+                    if (Date.now() % 100 < 5) { // Decay spell active states gracefully
+                        EngineState.spell = "None";
+                        document.getElementById("telemetry-spell").innerText = "Inactive";
+                    }
+                }
+            }
+
+            onFaceResults(results) {
+                if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
+
+                const face = results.multiFaceLandmarks[0];
+                
+                // Track spatial facial mesh structural anchors for continuous parameter mapping
+                const noseTip = face[1];
+                const leftEyeTop = face[159];
+                const leftEyeBottom = face[145];
+                const mouthTop = face[13];
+                const mouthBottom = face[14];
+                const leftCorner = face[61];
+                const rightCorner = face[291];
+
+                // Continuous structural view-matrix updates via facial profile mapping
+                // Horizontal head displacement anchors tracking range mapping values
+                const headYaw = (noseTip.x - 0.5) * 45; 
+                EngineState.cameraTargetLookAt.x = -headYaw * 0.8;
+
+                // Facial expressions metrics processing calculations
+                const mouthOpenDist = Math.abs(mouthTop.y - mouthBottom.y);
+                const lipWidth = Math.abs(leftCorner.x - rightCorner.x);
+                const smileRatio = lipWidth / Math.max(0.01, mouthOpenDist);
+
+                // Process absolute emotion state classifications
+                let computedEmotion = "Neutral";
+                if (mouthOpenDist > 0.05) {
+                    computedEmotion = "Surprise / Gravity Shift";
+                    EngineState.environmentMode = "Fire";
+                } else if (smileRatio > 4.5) {
+                    computedEmotion = "Happy";
+                    EngineState.environmentMode = "Calm";
+                    EngineState.bondingLevel = Math.min(100, EngineState.bondingLevel + 0.05);
+                } else if (smileRatio < 2.8) {
+                    computedEmotion = "Sad";
+                    EngineState.environmentMode = "Rain";
+                }
+
+                if (computedEmotion !== EngineState.emotion) {
+                    EngineState.emotion = computedEmotion;
+                    document.getElementById("telemetry-emotion").innerText = computedEmotion;
+                }
+
+                // Process sudden frame deltas mapping to blink cycles metrics tracking
+                const eyeOpenDist = Math.abs(leftEyeTop.y - leftEyeBottom.y);
+                if (eyeOpenDist < 0.012) {
+                    // Spawn physical system reaction forces inside renderer
+                    EngineState.lightningIntensity = Math.min(1.0, EngineState.lightningIntensity + 0.15);
+                }
+            }
+        }
+
+        /**
+         * Real-time Cinematic AAA Procedural WebGL Web Universe Engine Architecture
+         */
+        class UniverseEngine {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.renderer = null;
+                this.scene = null;
+                this.camera = null;
+                
+                // Graphical components structures declaration
+                this.galaxyParticles = null;
+                this.environmentParticles = null;
+                this.petMesh = null;
+                this.creatureMesh = null;
+                this.portalMesh = null;
+                this.shieldMesh = null;
+                this.clock = new THREE.Clock();
+            }
+
+            init() {
+                // Instantiating optimized custom hardware viewport settings configuration context
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: this.canvas,
+                    antialias: true,
+                    powerPreference: "high-performance",
+                    alpha: false
+                });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Dynamic capping optimizing performance profiles
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+
+                this.scene = new THREE.Scene();
+                this.scene.fog = new THREE.FogExp2(0x02020a, 0.015);
+
+                this.camera = new THREE.Camera();
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.copy(EngineState.cameraTargetPos);
+
+                this.buildLightingMatrix();
+                this.buildGalaxyEngine();
+                this.buildEnvironmentEngine();
+                this.buildProceduralCreatureEngine();
+                this.buildVirtualPetMatrix();
+                this.buildARPortalArchitecture();
+
+                window.addEventListener('resize', () => this.onWindowResize());
+            }
+
+            buildLightingMatrix() {
+                const ambientLight = new THREE.AmbientLight(0x0a0a23, 1.5);
+                this.scene.add(ambientLight);
+
+                const primeDirectional = new THREE.DirectionalLight(0x00f3ff, 2.5);
+                primeDirectional.position.set(5, 20, 10);
+                this.scene.add(primeDirectional);
+
+                const secondaryGlow = new THREE.PointLight(0xff007b, 3, 50);
+                secondaryGlow.position.set(-10, -5, -10);
+                this.scene.add(secondaryGlow);
+            }
+
+            buildGalaxyEngine() {
+                // Procedural generation parameters for real-time math-based spatial structural galaxy compilation
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(Config.galaxyParticleCount * 3);
+                const colors = new Float32Array(Config.galaxyParticleCount * 3);
+                const randomScales = new Float32Array(Config.galaxyParticleCount);
+
+                const colorCore = new THREE.Color(0xff007b);
+                const colorArm = new THREE.Color(0x00f3ff);
+
+                for (let i = 0; i < Config.galaxyParticleCount; i++) {
+                    // Logarithmic Spiral Mathematical Formulation Pipeline
+                    const r = Math.pow(Math.random(), 2.5) * Config.baseGalaxyRadius;
+                    const armsCount = 3;
+                    const armAngle = ((i % armsCount) * (2 * Math.PI)) / armsCount;
+                    const spiralFactor = 0.22;
+                    const angle = r * spiralFactor + armAngle;
+
+                    // Volumetric noise spreading formulation vectors
+                    const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 2.5;
+                    const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 2.5;
+                    const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * 2.5;
+
+                    positions[i * 3] = Math.cos(angle) * r + randomX;
+                    positions[i * 3 + 1] = randomY;
+                    positions[i * 3 + 2] = Math.sin(angle) * r + randomZ;
+
+                    // Blend spatial colors map based on structural core distance values
+                    const mixedColor = colorCore.clone();
+                    mixedColor.lerp(colorArm, r / Config.baseGalaxyRadius);
+                    
+                    colors[i * 3] = mixedColor.r;
+                    colors[i * 3 + 1] = mixedColor.g;
+                    colors[i * 3 + 2] = mixedColor.b;
+
+                    randomScales[i] = Math.random();
+                }
+
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+                geometry.setAttribute('aRandomScale', new THREE.BufferAttribute(randomScales, 1));
+
+                // Implement an advanced inline cinematic custom shader material directly into our particle structure pipeline matrix
+                const material = new THREE.ShaderMaterial({
+                    depthWrite: false,
+                    blending: THREE.AdditiveBlending,
+                    vertexColors: true,
+                    uniforms: {
+                        uTime: { value: 0.0 },
+                        uSize: { value: 30.0 },
+                        uExplosion: { value: 0.0 },
+                        uCollapse: { value: 0.0 }
+                    },
+                    vertexShader: `
+                        uniform float uTime;
+                        uniform float uSize;
+                        uniform float uExplosion;
+                        uniform float uCollapse;
+                        attribute float aRandomScale;
+                        varying vec3 vColor;
+                        void main() {
+                            vColor = color;
+                            vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+                            
+                            // Real-time custom math transformation injections based on physical macro state engine parameters
+                            float angle = uTime * (1.2 + aRandomScale * 0.8);
+                            // Process angular transformation operations directly inside shader pipeline
+                            float c = cos(angle * 0.05);
+                            float s = sin(angle * 0.05);
+                            mat2 rMat = mat2(c, -s, s, c);
+                            modelPosition.xz = rMat * modelPosition.xz;
+
+                            // Handle explicit gesture animation states modifications
+                            modelPosition.xyz += normalize(position) * uExplosion * 35.0 * aRandomScale;
+                            modelPosition.xyz = mix(modelPosition.xyz, vec3(0.0), uCollapse * 0.85);
+
+                            vec4 viewPosition = viewMatrix * modelPosition;
+                            vec4 projectedPosition = projectionMatrix * viewPosition;
+                            gl_Position = projectedPosition;
+                            
+                            // High performance calculation of perspective size mapping properties
+                            gl_PointSize = uSize * aRandomScale * (1.0 / -viewPosition.z);
+                        }
+                    `,
+                    fragmentShader: `
+                        varying vec3 vColor;
+                        void main() {
+                            // Compute high quality analytical radial gradient falloff profiles to mock expensive bloom sampling passes
+                            float dist = distance(gl_PointCoord, vec2(0.5));
+                            if(dist > 0.5) discard;
+                            float strength = 1.0 - (dist * 2.0);
+                            strength = pow(strength, 2.0);
+                            gl_FragColor = vec4(vColor * strength, strength);
+                        }
+                    `
+                });
+
+                this.galaxyParticles = new THREE.Points(geometry, material);
+                this.scene.add(this.galaxyParticles);
+            }
+
+            buildEnvironmentEngine() {
+                // Secondary fallback environment layer representing emotive context modes mapping profiles
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(Config.rainParticleCount * 3);
+                
+                for(let i=0; i<Config.rainParticleCount * 3; i+=3) {
+                    positions[i] = (Math.random() - 0.5) * 120;
+                    positions[i+1] = Math.random() * 80 - 30;
+                    positions[i+2] = (Math.random() - 0.5) * 120;
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+                const material = new THREE.PointsMaterial({
+                    size: 0.35,
+                    color: 0x00f3ff,
+                    transparent: true,
+                    opacity: 0.4,
+                    blending: THREE.AdditiveBlending
+                });
+
+                this.environmentParticles = new THREE.Points(geometry, material);
+                this.scene.add(this.environmentParticles);
+
+                // Create shielding geometry wrapper structures context
+                const shieldGeo = new THREE.SphereGeometry(15, 32, 32);
+                const shieldMat = new THREE.MeshBasicMaterial({
+                    color: 0x00f3ff,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.0,
+                    blending: THREE.AdditiveBlending
+                });
+                this.shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+                this.scene.add(this.shieldMesh);
+            }
+
+            buildProceduralCreatureEngine() {
+                // Procedural generation of life models avoiding external asset requirements
+                const group = new THREE.Group();
+                const curvePoints = [];
+                for (let i = 0; i < 30; i++) {
+                    curvePoints.push(new THREE.Vector3(
+                        Math.sin(i * 0.5) * 2,
+                        i * 0.4,
+                        Math.cos(i * 0.5) * 2
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(curvePoints);
+                const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.25, 8, false);
+                const tubeMat = new THREE.MeshStandardMaterial({
+                    color: 0xff007b,
+                    emissive: 0x440022,
+                    roughness: 0.1,
+                    metalness: 0.8,
+                    wireframe: true
+                });
+
+                const spine = new THREE.Mesh(tubeGeo, tubeMat);
+                group.add(spine);
+
+                // Add secondary energetic spatial wing profiles mappings
+                const wingGeo = new THREE.TorusGeometry(3, 0.1, 8, 24);
+                const leftWing = new THREE.Mesh(wingGeo, tubeMat);
+                leftWing.position.set(3, 6, 0);
+                leftWing.rotation.y = Math.PI / 4;
+                const rightWing = leftWing.clone();
+                rightWing.position.x = -3;
+                rightWing.rotation.y = -Math.PI / 4;
+
+                group.add(leftWing);
+                group.add(rightWing);
+
+                group.position.set(0, -100, 0); // Position far outside primary viewing bounds until explicit trigger calls
+                this.creatureMesh = group;
+                this.scene.add(this.creatureMesh);
+            }
+
+            buildVirtualPetMatrix() {
+                // Procedural composition mapping for floating virtual Companion AI system entity mesh
+                const petGroup = new THREE.Group();
+                const coreGeo = new THREE.IcosahedronGeometry(1.2, 2);
+                const coreMat = new THREE.MeshStandardMaterial({
+                    color: 0x00f3ff,
+                    emissive: 0x003344,
+                    wireframe: true
+                });
+                const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+                petGroup.add(coreMesh);
+
+                // Floating external satellite ring architectures
+                const ringGeo = new THREE.RingGeometry(1.8, 2.0, 32);
+                const ringMat = new THREE.MeshBasicMaterial({ color: 0xff007b, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                ringMesh.rotation.x = Math.PI / 2;
+                petGroup.add(ringMesh);
+
+                petGroup.position.set(10, 5, -5);
+                this.petMesh = petGroup;
+                this.scene.add(this.petMesh);
+            }
+
+            buildARPortalArchitecture() {
+                const portalGeo = new THREE.TorusGeometry(8, 0.4, 16, 100);
+                const portalMat = new THREE.MeshStandardMaterial({
+                    color: 0xffaa00,
+                    emissive: 0x331100,
+                    metalness: 0.9,
+                    roughness: 0.1,
+                    wireframe: true
+                });
+                this.portalMesh = new THREE.Mesh(portalGeo, portalMat);
+                this.portalMesh.position.set(0, 0, -25);
+                this.portalMesh.scale.set(0.001, 0.001, 0.001); // Hide by scaling down below atomic bounds
+                this.scene.add(this.portalMesh);
+            }
+
+            onWindowResize() {
+                this.camera.aspect = window.innerWidth / window.innerHeight;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+            }
+
+            render() {
+                const delta = this.clock.getDelta();
+                const elapsed = this.clock.getElapsedTime();
+
+                // Smooth exponential linear interpolation updating properties models definitions
+                EngineState.galaxyScale = THREE.MathUtils.lerp(EngineState.galaxyScale, EngineState.galaxyTargetScale, Config.smoothLerpFactor);
+                EngineState.galaxySpeed = THREE.MathUtils.lerp(EngineState.galaxySpeed, EngineState.galaxyTargetSpeed, Config.smoothLerpFactor);
+                
+                EngineState.explosionFactor = THREE.MathUtils.lerp(EngineState.explosionFactor, 0.0, 0.05);
+                EngineState.collapseFactor = THREE.MathUtils.lerp(EngineState.collapseFactor, 0.0, 0.05);
+
+                // Apply updates into Uniform Blocks targeting low level shaders parameters
+                if (this.galaxyParticles) {
+                    this.galaxyParticles.material.uniforms.uTime.value = elapsed * EngineState.galaxySpeed;
+                    this.galaxyParticles.material.uniforms.uExplosion.value = EngineState.explosionFactor;
+                    this.galaxyParticles.material.uniforms.uCollapse.value = EngineState.collapseFactor;
+                    this.galaxyParticles.scale.setScalar(EngineState.galaxyScale);
+                }
+
+                // Handle system updates feeding from local environment emotive states pipelines
+                this.processEnvironmentStates(delta, elapsed);
+
+                // Smooth camera viewport orientation mapping pipelines
+                this.camera.position.lerp(EngineState.cameraTargetPos, 0.05);
+                
+                // Track look-at reference targets updating smooth viewport translation vectors matrices
+                const currentLookAt = new THREE.Vector3(0,0,0).lerp(EngineState.cameraTargetLookAt, 0.05);
+                this.camera.lookAt(currentLookAt);
+
+                // Execute local behavior animations loops tracking objects
+                this.animateProceduralEntities(elapsed);
+
+                // Handle screen shake logic hooks injection
+                if(EngineState.screenShake) {
+                    document.getElementById("webgl-canvas").classList.add("shake-active");
+                } else {
+                    document.getElementById("webgl-canvas").classList.remove("shake-active");
+                }
+
+                // Continuous parameter reporting out to UI displays modules
+                document.getElementById("val-pressure").innerText = `${EngineState.galaxySpeed.toFixed(2)}x`;
+                document.getElementById("bar-pressure").style.width = `${Math.min(100, EngineState.galaxySpeed * 33)}%`;
+                document.getElementById("val-bonding").innerText = `${EngineState.bondingLevel.toFixed(1)}%`;
+                document.getElementById("bar-bonding").style.width = `${EngineState.bondingLevel}%`;
+
+                // Pipe variables back into our native synthesizers audio context loops mapping
+                SoundSystem.updateAudioParameters(EngineState.galaxySpeed, EngineState.explosionFactor);
+
+                this.renderer.render(this.scene, this.camera);
+            }
+
+            processEnvironmentStates(delta, elapsed) {
+                if (!this.environmentParticles) return;
+
+                const positions = this.environmentParticles.geometry.attributes.position.array;
+                
+                // Emotive Context State Transformation Processors Switching Loops Matrix
+                if (EngineState.environmentMode === "Rain") {
+                    this.environmentParticles.material.color.setHex(0x00f3ff);
+                    for(let i=1; i<positions.length; i+=3) {
+                        positions[i] -= 25.0 * delta; // Accelerate downward vectors tracking particles positions
+                        if(positions[i] < -30) positions[i] = 50;
+                    }
+                } else if (EngineState.environmentMode === "Fire") {
+                    this.environmentParticles.material.color.setHex(0xff3300);
+                    for(let i=1; i<positions.length; i+=3) {
+                        positions[i] += 15.0 * delta; // Accelerate thermal updraft simulation models properties vectors
+                        if(positions[i] > 50) positions[i] = -30;
+                    }
+                } else { // Standard Calm Baseline Spatial Atmospheric Ambient Processing
+                    this.environmentParticles.material.color.setHex(0xaa00ff);
+                    for(let i=0; i<positions.length; i+=3) {
+                        positions[i+1] += Math.sin(elapsed + i) * 1.0 * delta;
+                    }
+                }
+                this.environmentParticles.geometry.attributes.position.needsUpdate = true;
+
+                // Process continuous spell shield mesh expansion decay vectors
+                EngineState.shieldIntensity = THREE.MathUtils.lerp(EngineState.shieldIntensity, 0.0, 0.03);
+                this.shieldMesh.material.opacity = EngineState.shieldIntensity;
+                this.shieldMesh.scale.setScalar(1.0 + EngineState.shieldIntensity * 0.5);
+
+                // Handle environmental flash conditions reflecting lightning tracking parameters
+                EngineState.lightningIntensity = THREE.MathUtils.lerp(EngineState.lightningIntensity, 0.0, 0.08);
+                if (EngineState.lightningIntensity > 0.1) {
+                    this.renderer.clearColor();
+                    if(Math.random() > 0.4) {
+                        this.scene.background = new THREE.Color(0xffffff);
+                    } else {
+                        this.scene.background = new THREE.Color(0x020208);
+                    }
+                } else {
+                    this.scene.background = null;
+                }
+            }
+
+            animateProceduralEntities(elapsed) {
+                // Drive Companion AI Pet kinematics equations structures loop context
+                if (this.petMesh) {
+                    // Lock orbit mechanics matching current camera center profiles offsets
+                    this.petMesh.position.x = Math.sin(elapsed * 0.8) * 8 + (EngineState.cameraTargetLookAt.x * 0.2);
+                    this.petMesh.position.y = Math.cos(elapsed * 1.1) * 3 + 4;
+                    this.petMesh.position.z = -10 + Math.sin(elapsed) * 4;
+                    this.petMesh.rotation.y += 0.02;
+                    this.petMesh.rotation.z += 0.01;
+                }
+
+                // Manage spatial life dynamic lifecycle triggers mapping parameters
+                if (this.creatureMesh) {
+                    if (EngineState.activeCreature !== "None" && EngineState.activeCreature !== "Pet") {
+                        // Lerp creature up vertically into primary frame sightlines viewport volume
+                        this.creatureMesh.position.y = THREE.MathUtils.lerp(this.creatureMesh.position.y, -10, 0.04);
+                        this.creatureMesh.rotation.y = elapsed * 0.5;
+                        
+                        // Execute undulating swimming transformations using harmonic wave equations metrics
+                        const spineGeometry = this.creatureMesh.children[0].geometry;
+                        // Dynamically update material emissive channels to simulate real-time neural glow mapping
+                        this.creatureMesh.children[0].material.emissiveIntensity = Math.sin(elapsed * 3.0) * 0.5 + 0.6;
+                    } else {
+                        // Drop object back down into clipping storage bounds arrays space
+                        this.creatureMesh.position.y = THREE.MathUtils.lerp(this.creatureMesh.position.y, -100, 0.04);
+                    }
+                }
+
+                // Handle volumetric transformation bounds driving spatial alternate reality portal meshes
+                if (this.portalMesh) {
+                    if (EngineState.portalOpen) {
+                        const s = EngineState.portalProgress * 1.5;
+                        this.portalMesh.scale.set(s, s, s);
+                        this.portalMesh.rotation.z = elapsed * 1.2;
+                    } else {
+                        const s = THREE.MathUtils.lerp(this.portalMesh.scale.x, 0.001, 0.1);
+                        this.portalMesh.scale.set(s, s, s);
+                    }
+                }
+            }
+        }
+
+        const RenderSystem = new UniverseEngine("webgl-canvas");
+
+        /**
+         * Interactive Cinematic Narrative Script Nodes Configuration Modeling
+         */
+        const StoryScript = [
+            {
+                text: "Welcome, Star Voyager. Raise your right or left hand to interface with the core consciousness architecture of this micro-universe.",
+                hint: "Advance the story by generating a scene transition gesture (Two Fingers Extended)."
+            },
+            {
+                text: "Alert: Structural spatial distortions identified. The galactic core responds dynamically to the geometry of your biological physical postures.",
+                hint: "Form a tight Fist to trigger a high intensity gravity well collapse singularity."
+            },
+            {
+                text: "Remarkable. You are interfacing seamlessly across structural realities. We are detecting spatial life forms responding to your direct signature.",
+                hint: "Open your Palm completely to feed raw energy back into the expansion shader loops."
+            },
+            {
+                text: "Simulation boundaries fully integrated. The universe rests in total synthesis with your cognitive consciousness mapping array profiles.",
+                hint: "Smile or Blink to adjust localized environmental color matrices and light bursts."
+            }
+        ];
+
+        function updateStoryUI() {
+            const node = StoryScript[EngineState.storyNode];
+            const textEl = document.getElementById("story-display");
+            const hintEl = document.getElementById("story-sub");
+            
+            textEl.style.opacity = 0;
+            setTimeout(() => {
+                textEl.innerText = node.text;
+                hintEl.innerText = node.hint;
+                textEl.style.opacity = 1;
+            }, 500);
+        }
+
+        /**
+         * Orchestration Activation Verification Hook Matrix Initialization
+         */
+        document.getElementById("start-btn").addEventListener("click", async () => {
+            const statusText = document.getElementById("loading-status");
+            statusText.innerText = "Authorizing peripheral communication buffers...";
+            
+            try {
+                // Spin up native synthesized audio execution channels instantly to clear browser user interaction security blocking rules
+                SoundSystem.init();
+
+                statusText.innerText = "Configuring core WebGL compilation matrices...";
+                RenderSystem.init();
+
+                statusText.innerText = "Requesting tracking infrastructure access keys...";
+                const hardwareCamera = new CameraSystem("webcam-video");
+                const activeStreamVideo = await hardwareCamera.initialize();
+
+                statusText.innerText = "Binding tracking pipelines. Simulation launching...";
+                const analyticsVision = new TrackingEngine(activeStreamVideo, "tracking-overlay");
+                analyticsVision.init();
+
+                // Clear Initialization Overlay Curtain cleanly
+                const curtain = document.getElementById("init-overlay");
+                curtain.style.opacity = 0;
+                setTimeout(() => curtain.remove(), 1000);
+
+                // Kick off primary rendering engine loops matrix execution sequence threads
+                function mainRenderLoop() {
+                    requestAnimationFrame(mainRenderLoop);
+                    RenderSystem.render();
+                }
+                mainRenderLoop();
+
+            } catch (error) {
+                console.error("Critical Runtime Fault Exception during initialization sequence:", error);
+                statusText.style.color = "#ff0055";
+                statusText.innerText = `FATAL EXCEPTION: ${error.message || error}`;
+            }
+        });
+    </script>
+</body>
+</html>
